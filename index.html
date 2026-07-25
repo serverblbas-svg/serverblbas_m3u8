@@ -1,296 +1,199 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-import http.server
-import socketserver
-import urllib.request
-import urllib.parse
-import ssl
-
-PORT = 8080
-
-# لینکە ڕەسەنەکان
-M3U_URL = "https://xtream-ie.net/get.php?username=serverblbas&password=serverblbas&type=m3u_plus"
-EPG_URL = "https://xtream-ie.net/xmltv.php?username=serverblbas&password=serverblbas"
-
-HTML_PAGE = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="kmr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zaman IPTV</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <title>Zaman IPTV Player</title>
+
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-        body { display: flex; height: 100vh; background: #0a0a0a; color: #fff; overflow: hidden; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+        body { display: flex; flex-direction: column; height: 100vh; background: #121212; color: #fff; overflow: hidden; }
+
+        /* بەشی سەرەوە: شاشەی پەخشکردن */
+        #main { 
+            flex: 0 0 auto; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            background: #000; 
+            padding: 10px;
+            border-bottom: 2px solid #222;
+        }
+        video { width: 100%; max-width: 850px; height: 240px; background: #000; outline: none; border-radius: 8px; }
+        #status { margin-top: 8px; color: #00bcd4; font-size: 13px; font-weight: bold; text-align: center; }
+
+        /* بەشی خوارەوە: گرووپەکان و لیستی کەناڵەکان */
+        #bottom-section { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            background: #1e1e1e; 
+            overflow: hidden;
+        }
         
-        #sidebar { width: 380px; background: #141414; display: flex; flex-direction: column; border-right: 1px solid #222; }
-        .header { padding: 16px; background: #00bcd4; color: #000; font-size: 18px; font-weight: bold; text-align: center; }
-        
-        .ctrl { padding: 10px; background: #1a1a1a; border-bottom: 1px solid #222; }
-        select, input { width: 100%; padding: 8px; margin-bottom: 6px; background: #222; color: #fff; border: 1px solid #333; border-radius: 4px; font-size: 13px; }
-        input { margin: 0; }
-        .stats { padding: 6px 10px; font-size: 11px; color: #666; display: flex; justify-content: space-between; }
-        
-        #list { flex: 1; overflow-y: auto; list-style: none; }
-        #list::-webkit-scrollbar { width: 4px; }
-        #list::-webkit-scrollbar-thumb { background: #333; }
-        
-        .ch { display: flex; align-items: center; padding: 9px 12px; border-bottom: 1px solid #1a1a1a; cursor: pointer; transition: 0.15s; }
-        .ch:hover { background: #1e1e1e; }
-        .ch.on { background: rgba(0,188,212,0.15); border-left: 3px solid #00bcd4; }
-        .ch img { width: 38px; height: 38px; object-fit: contain; margin-right: 10px; background: #000; border-radius: 4px; border: 1px solid #222; }
-        .ch .info { flex: 1; min-width: 0; }
-        .ch .name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-        .ch .epg { font-size: 11px; color: #00bcd4; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ch .bar { position: absolute; bottom: 0; left: 0; height: 2px; background: #00bcd4; opacity: 0.5; }
-        
-        #main { flex: 1; display: flex; flex-direction: column; background: #000; }
-        .vwrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        video { width: 100%; max-width: 900px; max-height: 60vh; background: #000; border-radius: 6px; }
-        
-        #epgBox { background: #111; border-top: 1px solid #222; padding: 12px 16px; max-height: 180px; overflow-y: auto; }
-        #epgBox::-webkit-scrollbar { width: 4px; }
-        .epgH { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #222; }
-        .epgH .t { font-size: 15px; font-weight: bold; color: #00bcd4; }
-        .epgH .s { font-size: 11px; color: #666; }
-        
-        .prg { display: flex; padding: 6px 0; border-bottom: 1px solid #181818; align-items: flex-start; }
-        .prg.now { background: rgba(0,188,212,0.08); margin: 0 -16px; padding: 6px 16px; border-left: 2px solid #00bcd4; }
-        .prg .tm { width: 100px; font-size: 11px; color: #888; flex-shrink: 0; }
-        .prg .ti { flex: 1; }
-        .prg .ti .tt { font-size: 12px; font-weight: 500; }
-        .prg .ti .td { font-size: 11px; color: #777; margin-top: 1px; }
-        .live { display: inline-block; background: #ff4444; color: #fff; font-size: 9px; padding: 1px 5px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
-        .pgb { width: 100%; height: 2px; background: #222; margin-top: 4px; border-radius: 1px; overflow: hidden; }
-        .pgf { height: 100%; background: #00bcd4; }
-        
-        #status { padding: 8px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #1a1a1a; background: #0a0a0a; }
-        #status.ok { color: #4caf50; }
-        #status.err { color: #ff5252; }
-        
-        .load { text-align: center; padding: 40px; color: #555; }
-        .spin { border: 3px solid #222; border-top: 3px solid #00bcd4; border-radius: 50%; width: 30px; height: 30px; animation: s 1s linear infinite; margin: 0 auto 10px; }
-        @keyframes s { to { transform: rotate(360deg); } }
-        
-        @media(max-width:768px){ body{flex-direction:column} #sidebar{width:100%;height:45vh} #main{height:55vh} }
+        .header { 
+            padding: 10px; 
+            background: #252525; 
+            font-size: 16px; 
+            font-weight: bold; 
+            text-align: center; 
+            color: #00bcd4; 
+            border-bottom: 1px solid #333;
+        }
+
+        #groupSelect { 
+            width: 92%; 
+            margin: 10px auto; 
+            padding: 10px; 
+            background: #2a2a2a; 
+            color: #fff; 
+            border: 1px solid #444; 
+            border-radius: 6px; 
+            font-size: 14px;
+            outline: none;
+        }
+
+        #channelList { 
+            flex: 1; 
+            overflow-y: auto; 
+            list-style: none; 
+            padding: 10px; 
+        }
+
+        /* شێوازی هەر کەناڵێک */
+        .channel-item { 
+            display: flex; 
+            align-items: center; 
+            padding: 10px; 
+            border-bottom: 1px solid #2a2a2a; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            border-radius: 6px;
+            margin-bottom: 4px;
+            background: #222;
+        }
+        .channel-item:hover { background: #333; }
+        .channel-item img { width: 36px; height: 36px; object-fit: contain; margin-right: 12px; background: #000; border-radius: 4px; }
+        .channel-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ddd; }
     </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <div class="header">📺 ZAMAN IPTV</div>
-    <div class="ctrl">
-        <select id="grp" onchange="fl()"><option value="ALL">هەموو گرووپەکان</option></select>
-        <input id="q" placeholder="گەڕان..." oninput="fl()">
+    <!-- بەشی سەرەوە (Player) -->
+    <div id="main">
+        <video id="videoPlayer" controls autoplay></video>
+        <div id="status">کەناڵێک هەڵبژێرە بۆ لێدان...</div>
     </div>
-    <div class="stats"><span id="st">0 کەناڵ</span><span id="sg">هەموو</span></div>
-    <ul id="list"><div class="load"><div class="spin"></div>بارکردن...</div></ul>
-</div>
 
-<div id="main">
-    <div class="vwrap"><video id="vid" controls autoplay playsinline></video></div>
-    <div id="epgBox" style="display:none">
-        <div class="epgH"><span class="t" id="en">کەناڵ</span><span class="s">EPG</span></div>
-        <div id="epgList"></div>
+    <!-- بەشی خوارەوە (گرووپەکان و کەناڵەکان) -->
+    <div id="bottom-section">
+        <div class="header">ZAMAN IPTV</div>
+        <select id="groupSelect" onchange="filterChannels()">
+            <option value="ALL">هەموو گرووپەکان (All Groups)</option>
+        </select>
+        <ul id="channelList"></ul>
     </div>
-    <div id="status">چاوەڕوان بە...</div>
-</div>
 
-<script>
-const M3U = "/proxy?url=" + encodeURIComponent("M3U_URL_PLACEHOLDER");
-const EPG = "/proxy?url=" + encodeURIComponent("EPG_URL_PLACEHOLDER");
+    <script>
+        const M3U_URL = "https://xtream-ie.net/get.php?username=serverblbas&password=serverblbas&type=m3u_plus";
+        let allChannels = [];
 
-let chs=[], epg={c:{},p:[]}, hls=null, cur=null;
+        // ڕاکێشانی فایلی M3U
+        fetch(M3U_URL)
+            .then(res => res.text())
+            .then(data => {
+                parseM3U(data);
+                document.getElementById('status').innerText = "کەناڵەکان بارکران.";
+            })
+            .catch(err => {
+                document.getElementById('status').innerText = "کێشە لە وەگرتنی لینکەکە هەیە (CORS / Network Error).";
+            });
 
-async function init(){
-    try{
-        let [m,e]=await Promise.all([fetch(M3U).then(r=>r.text()), fetch(EPG).then(r=>r.text())]);
-        parseM3U(m); parseEPG(e); match(); fillGrp(); fl(); ok(chs.length+" کەناڵ + EPG بارکرا");
-    }catch(x){ console.error(x); err("کێشە لە بارکردن: "+x.message); }
-}
+        // شیکردنەوەی فایلی M3U
+        function parseM3U(data) {
+            const lines = data.split('\n');
+            let currentChannel = {};
+            const groups = new Set();
 
-function parseM3U(d){
-    let c={}, ls=d.split('\\n');
-    ls.forEach(l=>{
-        l=l.trim();
-        if(l.startsWith('#EXTINF:')){
-            let g=(l.match(/group-title="([^"]*)"/)||[,''])[1];
-            let o=(l.match(/tvg-logo="([^"]*)"/)||[,''])[1];
-            let i=(l.match(/tvg-id="([^"]*)"/)||[,''])[1];
-            let n=l.split(',').pop().trim();
-            c={name:n||'ناونیشان نییە',group:g||'نادیار',logo:o,tvgId:i};
-        }else if(l.startsWith('http')&&c.name){ c.url=l; chs.push(c); c={}; }
-    });
-}
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('#EXTINF:')) {
+                    // وەرگرتنی ناوی گرووپ
+                    const groupMatch = line.match(/group-title="([^"]+)"/);
+                    const group = groupMatch ? groupMatch[1] : 'Uncategorized';
+                    groups.add(group);
 
-function parseEPG(x){
-    let p=new DOMParser().parseFromString(x,"text/xml");
-    p.querySelectorAll('channel').forEach(c=>{ epg.c[c.getAttribute('id')]={name:c.querySelector('display-name')?.textContent||''}; });
-    p.querySelectorAll('programme').forEach(pr=>{
-        let s=pr.getAttribute('start'), e=pr.getAttribute('stop'), id=pr.getAttribute('channel');
-        let t=pr.querySelector('title')?.textContent||'', de=pr.querySelector('desc')?.textContent||'';
-        let st=xt(s), en=xt(e); if(st&&en) epg.p.push({ch:id,start:st,stop:en,title:t,desc:de});
-    });
-    epg.p.sort((a,b)=>a.start-b.start);
-}
+                    // وەرگرتنی لۆگۆ
+                    const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+                    const logo = logoMatch ? logoMatch[1] : '';
 
-function xt(s){
-    if(!s) return null;
-    let y=parseInt(s.slice(0,4)), m=parseInt(s.slice(4,6))-1, d=parseInt(s.slice(6,8));
-    let h=parseInt(s.slice(8,10)), n=parseInt(s.slice(10,12)), z=parseInt(s.slice(12,14));
-    let dt=new Date(Date.UTC(y,m,d,h,n,z));
-    let tz=s.match(/([+-]\\d{2})(\\d{2})$/);
-    if(tz){ dt.setUTCHours(dt.getUTCHours()-parseInt(tz[1])); }
-    return dt;
-}
+                    // وەرگرتنی ناوی کەناڵ
+                    const nameParts = line.split(',');
+                    const name = nameParts[nameParts.length - 1];
 
-function match(){
-    let now=new Date();
-    chs.forEach(c=>{
-        let id=c.tvgId;
-        if(!id){ let nn=c.name.toLowerCase(); for(let[k,v]of Object.entries(epg.c)){ if(v.name.toLowerCase()==nn){id=k;break;} } }
-        c.eid=id;
-        if(id){
-            let pp=epg.p.filter(x=>x.ch==id);
-            c.now=pp.find(x=>now>=x.start&&now<x.stop);
-            c.next=pp.filter(x=>x.start>now).slice(0,3);
+                    currentChannel = { name, group, logo };
+                } else if (line.startsWith('http')) {
+                    currentChannel.url = line;
+                    allChannels.push(currentChannel);
+                    currentChannel = {};
+                }
+            });
+
+            // پرکردنەوەی لیستی گرووپەکان
+            const select = document.getElementById('groupSelect');
+            groups.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.innerText = g;
+                select.appendChild(opt);
+            });
+
+            renderChannels(allChannels);
         }
-    });
-}
 
-function fillGrp(){
-    let gs=new Set(['ALL']); chs.forEach(c=>gs.add(c.group||'نادیار'));
-    let s=document.getElementById('grp'); s.innerHTML='';
-    Array.from(gs).sort().forEach(g=>{ let o=document.createElement('option'); o.value=g; o.textContent=g; s.appendChild(o); });
-}
+        // نیشاندانی کەناڵەکان
+        function renderChannels(channels) {
+            const list = document.getElementById('channelList');
+            list.innerHTML = '';
 
-function fl(){
-    let g=document.getElementById('grp').value, q=document.getElementById('q').value.toLowerCase();
-    let f=chs.filter(c=>(g=='ALL'||c.group==g)&&(!q||c.name.toLowerCase().includes(q)));
-    ren(f); document.getElementById('st').textContent=f.length+'/'+chs.length+' کەناڵ';
-    document.getElementById('sg').textContent=g=='ALL'?'هەموو':g;
-}
+            channels.slice(0, 300).forEach(ch => { 
+                const li = document.createElement('li');
+                li.className = 'channel-item';
+                
+                const img = document.createElement('img');
+                img.src = ch.logo || 'https://via.placeholder.com/40?text=TV';
+                img.onerror = () => img.src = 'https://via.placeholder.com/40?text=TV';
 
-function ren(arr){
-    let l=document.getElementById('list'); l.innerHTML='';
-    let now=new Date();
-    arr.forEach(c=>{
-        let d=document.createElement('li'); d.className='ch'; if(cur&&cur.url==c.url) d.className+=' on';
-        let im=document.createElement('img');
-        im.src=c.logo||'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38"><rect width="38" height="38" fill="%23111"/><text x="50%" y="55%" text-anchor="middle" fill="%23444" font-size="16">📺</text></svg>';
-        im.onerror=()=>im.src='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38"><rect width="38" height="38" fill="%23111"/><text x="50%" y="55%" text-anchor="middle" fill="%23444" font-size="10">TV</text></svg>';
-        let inf=document.createElement('div'); inf.className='info';
-        let nm=document.createElement('span'); nm.className='name'; nm.textContent=c.name;
-        inf.appendChild(nm);
-        if(c.now){
-            let ep=document.createElement('div'); ep.className='epg';
-            ep.textContent='▶ '+c.now.title; inf.appendChild(ep);
-            let tot=c.now.stop-c.now.start, el=now-c.now.start, pct=Math.min(100,Math.max(0,(el/tot)*100));
-            let bar=document.createElement('div'); bar.className='bar'; bar.style.width=pct+'%'; d.appendChild(bar);
+                const span = document.createElement('span');
+                span.className = 'channel-name';
+                span.innerText = ch.name;
+
+                li.appendChild(img);
+                li.appendChild(span);
+
+                li.onclick = () => playStream(ch.url, ch.name);
+                list.appendChild(li);
+            });
         }
-        d.appendChild(im); d.appendChild(inf); d.onclick=()=>play(c); l.appendChild(d);
-    });
-}
 
-function play(c){
-    cur=c; fl(); let v=document.getElementById('vid');
-    if(hls){hls.destroy();hls=null;}
-    ok('بەرزکردنەوە: '+c.name);
-    if(!c.url){err('بەتاڵە');return;}
-    if(Hls.isSupported()&&(c.url.includes('.m3u8')||c.url.includes('type=m3u'))){
-        hls=new Hls({enableWorker:true}); hls.loadSource(c.url); hls.attachMedia(v);
-        hls.on(Hls.Events.MANIFEST_PARSED,()=>{v.play().catch(e=>0); ok('▶ '+c.name);});
-        hls.on(Hls.Events.ERROR,(e,d)=>{if(d.fatal)err('کێشەی پەخش');});
-    }else if(v.canPlayType('application/vnd.apple.mpegurl')){v.src=c.url; v.onloadedmetadata=()=>v.play(); ok('▶ '+c.name);}
-    else {v.src=c.url; v.play().catch(e=>err(e.message)); ok('▶ '+c.name);}
-    showEpg(c);
-}
+        // فلتەرکردن بەپێی گرووپ
+        function filterChannels() {
+            const selectedGroup = document.getElementById('groupSelect').value;
+            if (selectedGroup === 'ALL') {
+                renderChannels(allChannels);
+            } else {
+                const filtered = allChannels.filter(c => c.group === selectedGroup);
+                renderChannels(filtered);
+            }
+        }
 
-function showEpg(c){
-    let box=document.getElementById('epgBox'), list=document.getElementById('epgList'), t=document.getElementById('en');
-    box.style.display='block'; t.textContent=c.name; let h=''; let now=new Date();
-    if(c.now){
-        let p=c.now, tot=p.stop-p.start, el=now-p.start, pct=Math.min(100,Math.max(0,(el/tot)*100));
-        h+='<div class="prg now"><div class="tm">'+ft(p.start)+' - '+ft(p.stop)+'</div><div class="ti"><div class="tt"><span class="live">LIVE</span>'+p.title+'</div><div class="td">'+(p.desc||'')+'</div><div class="pgb"><div class="pgf" style="width:'+pct+'%"></div></div></div></div>';
-    }
-    if(c.next) c.next.forEach(p=>{ h+='<div class="prg"><div class="tm">'+ft(p.start)+' - '+ft(p.stop)+'</div><div class="ti"><div class="tt">'+p.title+'</div><div class="td">'+(p.desc||'')+'</div></div></div>'; });
-    if(!c.now&&(!c.next||!c.next.length)) h='<div style="padding:10px;color:#555;font-size:12px;text-align:center;">EPG بەردەست نییە</div>';
-    list.innerHTML=h;
-}
-
-function ft(d){ return d?d.toLocaleTimeString('ku',{hour:'2-digit',minute:'2-digit',hour12:false}):'--:--'; }
-function ok(m){ let s=document.getElementById('status'); s.textContent=m; s.className='ok'; }
-function err(m){ let s=document.getElementById('status'); s.textContent='❌ '+m; s.className='err'; }
-
-document.addEventListener('keydown',e=>{
-    let v=document.getElementById('vid');
-    if(e.code=='Space'&&e.target.tagName!='INPUT'){e.preventDefault(); v.paused?v.play():v.pause();}
-    if(e.code=='KeyF'){document.fullscreenElement?document.exitFullscreen():v.requestFullscreen();}
-});
-
-init();
-setInterval(()=>{ if(chs.length){match();fl();if(cur)showEpg(cur);} },60000);
-</script>
+        // لێدانی کەناڵەکە
+        function playStream(url, name) {
+            const video = document.getElementById('videoPlayer');
+            video.src = url;
+            document.getElementById('status').innerText = "پەخشکردنی: " + name;
+        }
+    </script>
 </body>
-</html>"""
-
-class Handler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html; charset=utf-8')
-            self.end_headers()
-            # Replace placeholders with actual URLs
-            html = HTML_PAGE.replace('M3U_URL_PLACEHOLDER', M3U_URL).replace('EPG_URL_PLACEHOLDER', EPG_URL)
-            self.wfile.write(html.encode('utf-8'))
-            
-        elif self.path.startswith('/proxy?'):
-            query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-            url = query.get('url', [''])[0]
-            if not url:
-                self.send_error(400, "Missing URL")
-                return
-            
-            try:
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-                
-                req = urllib.request.Request(url, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.0',
-                    'Accept': '*/*',
-                    'Accept-Encoding': 'identity',
-                    'Connection': 'keep-alive',
-                })
-                
-                with urllib.request.urlopen(req, context=ctx, timeout=30) as resp:
-                    self.send_response(resp.status)
-                    ct = resp.headers.get('Content-Type', 'application/octet-stream')
-                    self.send_header('Content-Type', ct)
-                    self.send_header('Access-Control-Allow-Origin', '*')
-                    self.send_header('Cache-Control', 'no-cache')
-                    self.end_headers()
-                    self.wfile.write(resp.read())
-                    
-            except Exception as e:
-                self.send_error(500, str(e))
-        else:
-            self.send_error(404)
-
-    def log_message(self, format, *args):
-        # Cleaner logs
-        print(f"[{self.log_date_time_string()}] {args[0]}")
-
-if __name__ == '__main__':
-    print("=" * 50)
-    print("   ZAMAN IPTV - Local Server")
-    print("=" * 50)
-    print(f"\n👉 Open: http://localhost:{PORT}")
-    print("👉 Press Ctrl+C to stop\n")
-    
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\n\nServer stopped.")
+</html>
