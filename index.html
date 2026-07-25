@@ -7,39 +7,94 @@
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body { display: flex; height: 100vh; background: #121212; color: #fff; }
+        body { display: flex; flex-direction: column; height: 100vh; background: #121212; color: #fff; }
 
-        /* لاپەڕەی لای چەپ: لیست و گرووپەکان */
-        #sidebar { width: 350px; background: #1e1e1e; display: flex; flex-direction: column; border-right: 1px solid #333; }
-        .header { padding: 15px; background: #252525; font-size: 18px; font-weight: bold; text-align: center; color: #00bcd4; }
-        #groupSelect { width: 90%; margin: 10px auto; padding: 8px; background: #333; color: #fff; border: 1px solid #444; border-radius: 5px; }
-        #channelList { flex: 1; overflow-y: auto; list-style: none; padding: 10px; }
+        /* بەشی سەرەوە: پەخشکەرەکە (Video Player) */
+        #top-section { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            background: #000; 
+            padding: 10px;
+        }
+        video { width: 100%; max-width: 800px; height: 100%; max-height: 400px; background: #000; outline: none; border-radius: 8px; }
+        #status { margin-top: 8px; color: #00bcd4; font-size: 14px; font-weight: bold; }
 
-        /* شێوازی هەر کەناڵێک */
-        .channel-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #2a2a2a; cursor: pointer; transition: 0.2s; }
-        .channel-item:hover { background: #333; }
-        .channel-item img { width: 40px; height: 40px; object-fit: contain; margin-right: 12px; background: #000; border-radius: 4px; }
-        .channel-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* بەشی خوارەوە: گرووپەکان و کەناڵەکان */
+        #bottom-section { 
+            height: 320px; 
+            background: #1e1e1e; 
+            display: flex; 
+            flex-direction: column; 
+            border-top: 2px solid #333; 
+        }
+        
+        .controls { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 10px 15px; 
+            background: #252525; 
+        }
+        .header { font-size: 16px; font-weight: bold; color: #00bcd4; }
+        #groupSelect { 
+            padding: 8px 12px; 
+            background: #333; 
+            color: #fff; 
+            border: 1px solid #444; 
+            border-radius: 5px; 
+            outline: none;
+            font-size: 14px;
+        }
 
-        /* بەشی پەخشکەرەکە (Player) */
-        #main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; }
-        video { width: 100%; max-width: 900px; height: 500px; background: #000; outline: none; }
-        #status { margin-top: 10px; color: #aaa; font-size: 14px; }
+        /* لیستی کەناڵەکان و لۆگۆکان بە شێوەی تۆڕی خوارەوە (Grid Layout) */
+        #channelList { 
+            flex: 1; 
+            overflow-y: auto; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); 
+            gap: 10px; 
+            padding: 15px; 
+            list-style: none; 
+        }
+
+        /* شێوازی هەر کارتێکی کەناڵ */
+        .channel-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 10px; 
+            background: #2a2a2a; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: transform 0.2s, background 0.2s; 
+            border: 1px solid #333;
+        }
+        .channel-item:hover { background: #383838; transform: translateY(-3px); }
+        .channel-item img { width: 50px; height: 50px; object-fit: contain; margin-bottom: 8px; background: #121212; border-radius: 6px; padding: 2px; }
+        .channel-name { font-size: 12px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; color: #eee; }
     </style>
 </head>
 <body>
 
-    <div id="sidebar">
-        <div class="header">ZAMAN IPTV</div>
-        <select id="groupSelect" onchange="filterChannels()">
-            <option value="ALL">هەموو گرووپەکان (All Groups)</option>
-        </select>
-        <ul id="channelList"></ul>
+    <!-- بەشی سەرەوە: شاشەی ڤیدیۆ -->
+    <div id="top-section">
+        <video id="videoPlayer" controls autoplay></video>
+        <div id="status">کەناڵێک لە خوارەوە هەڵبژێرە...</div>
     </div>
 
-    <div id="main">
-        <video id="videoPlayer" controls autoplay></video>
-        <div id="status">کەناڵێک هەڵبژێرە بۆ لێدان...</div>
+    <!-- بەشی خوارەوە: گرووپ و لۆگۆکان -->
+    <div id="bottom-section">
+        <div class="controls">
+            <div class="header">ZAMAN IPTV</div>
+            <select id="groupSelect" onchange="filterChannels()">
+                <option value="ALL">هەموو گرووپەکان (All Groups)</option>
+            </select>
+        </div>
+        <ul id="channelList"></ul>
     </div>
 
     <script>
@@ -51,10 +106,10 @@
             .then(res => res.text())
             .then(data => {
                 parseM3U(data);
-                document.getElementById('status').innerText = "کەناڵەکان بارکران.";
+                document.getElementById('status').innerText = "کەناڵەکان بارکران. کلیک لە هەریەکەیان بکه بۆ پەخشکردن.";
             })
             .catch(err => {
-                document.getElementById('status').innerText = "کێشە لە وەگرتنی لینکەکە هەیە (CORS / Network Error).";
+                document.getElementById('status').innerText = "کێشە لە وەرگرتنی لیستەکە هەیە (Network / CORS Error).";
             });
 
         // شیکردنەوەی فایلی M3U
@@ -99,18 +154,18 @@
             renderChannels(allChannels);
         }
 
-        // نیشاندانی کەناڵەکان
+        // نیشاندانی کەناڵەکان بە لۆگۆوە لە خوارەوە
         function renderChannels(channels) {
             const list = document.getElementById('channelList');
             list.innerHTML = '';
 
-            channels.slice(0, 300).forEach(ch => { // دیاریکردنی ٣٠٠ کەناڵی سەرەتا بۆ خێرایی
+            channels.slice(0, 200).forEach(ch => { // نمایشکردنی ٢٠٠ کەناڵی سەرەتا
                 const li = document.createElement('li');
                 li.className = 'channel-item';
                 
                 const img = document.createElement('img');
-                img.src = ch.logo || 'https://via.placeholder.com/40?text=TV';
-                img.onerror = () => img.src = 'https://via.placeholder.com/40?text=TV';
+                img.src = ch.logo || 'https://via.placeholder.com/50?text=TV';
+                img.onerror = () => img.src = 'https://via.placeholder.com/50?text=TV';
 
                 const span = document.createElement('span');
                 span.className = 'channel-name';
