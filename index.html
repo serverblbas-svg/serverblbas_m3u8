@@ -6,93 +6,40 @@
     <title>Zaman IPTV Player</title>
 
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-        body { display: flex; flex-direction: column; height: 100vh; background: #121212; color: #fff; overflow: hidden; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { display: flex; height: 100vh; background: #121212; color: #fff; }
 
-        /* بەشی سەرەوە: شاشەی پەخشکردن */
-        #main { 
-            flex: 0 0 auto; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            background: #000; 
-            padding: 10px;
-            border-bottom: 2px solid #222;
-        }
-        video { width: 100%; max-width: 850px; height: 240px; background: #000; outline: none; border-radius: 8px; }
-        #status { margin-top: 8px; color: #00bcd4; font-size: 13px; font-weight: bold; text-align: center; }
-
-        /* بەشی خوارەوە: گرووپەکان و لیستی کەناڵەکان */
-        #bottom-section { 
-            flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            background: #1e1e1e; 
-            overflow: hidden;
-        }
-        
-        .header { 
-            padding: 10px; 
-            background: #252525; 
-            font-size: 16px; 
-            font-weight: bold; 
-            text-align: center; 
-            color: #00bcd4; 
-            border-bottom: 1px solid #333;
-        }
-
-        #groupSelect { 
-            width: 92%; 
-            margin: 10px auto; 
-            padding: 10px; 
-            background: #2a2a2a; 
-            color: #fff; 
-            border: 1px solid #444; 
-            border-radius: 6px; 
-            font-size: 14px;
-            outline: none;
-        }
-
-        #channelList { 
-            flex: 1; 
-            overflow-y: auto; 
-            list-style: none; 
-            padding: 10px; 
-        }
+        /* لاپەڕەی لای چەپ: لیست و گرووپەکان */
+        #sidebar { width: 350px; background: #1e1e1e; display: flex; flex-direction: column; border-right: 1px solid #333; }
+        .header { padding: 15px; background: #252525; font-size: 18px; font-weight: bold; text-align: center; color: #00bcd4; }
+        #groupSelect { width: 90%; margin: 10px auto; padding: 8px; background: #333; color: #fff; border: 1px solid #444; border-radius: 5px; }
+        #channelList { flex: 1; overflow-y: auto; list-style: none; padding: 10px; }
 
         /* شێوازی هەر کەناڵێک */
-        .channel-item { 
-            display: flex; 
-            align-items: center; 
-            padding: 10px; 
-            border-bottom: 1px solid #2a2a2a; 
-            cursor: pointer; 
-            transition: 0.2s; 
-            border-radius: 6px;
-            margin-bottom: 4px;
-            background: #222;
-        }
+        .channel-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #2a2a2a; cursor: pointer; transition: 0.2s; }
         .channel-item:hover { background: #333; }
-        .channel-item img { width: 36px; height: 36px; object-fit: contain; margin-right: 12px; background: #000; border-radius: 4px; }
-        .channel-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ddd; }
+        .channel-item img { width: 40px; height: 40px; object-fit: contain; margin-right: 12px; background: #000; border-radius: 4px; }
+        .channel-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* بەشی پەخشکەرەکە (Player) */
+        #main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #000; }
+        video { width: 100%; max-width: 900px; height: 500px; background: #000; outline: none; }
+        #status { margin-top: 10px; color: #aaa; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <!-- بەشی سەرەوە (Player) -->
-    <div id="main">
-        <video id="videoPlayer" controls autoplay></video>
-        <div id="status">کەناڵێک هەڵبژێرە بۆ لێدان...</div>
-    </div>
-
-    <!-- بەشی خوارەوە (گرووپەکان و کەناڵەکان) -->
-    <div id="bottom-section">
+    <div id="sidebar">
         <div class="header">ZAMAN IPTV</div>
         <select id="groupSelect" onchange="filterChannels()">
             <option value="ALL">هەموو گرووپەکان (All Groups)</option>
         </select>
         <ul id="channelList"></ul>
+    </div>
+
+    <div id="main">
+        <video id="videoPlayer" controls autoplay></video>
+        <div id="status">کەناڵێک هەڵبژێرە بۆ لێدان...</div>
     </div>
 
     <script>
@@ -157,7 +104,7 @@
             const list = document.getElementById('channelList');
             list.innerHTML = '';
 
-            channels.slice(0, 300).forEach(ch => { 
+            channels.slice(0, 300).forEach(ch => { // دیاریکردنی ٣٠٠ کەناڵی سەرەتا بۆ خێرایی
                 const li = document.createElement('li');
                 li.className = 'channel-item';
                 
