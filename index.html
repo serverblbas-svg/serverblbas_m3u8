@@ -1,199 +1,590 @@
 <!DOCTYPE html>
-<html lang="kmr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zaman IPTV Player</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kanian IPTV Pro</title>
+    <!-- hls.js for m3u8 playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
-        body { display: flex; flex-direction: column; height: 100vh; background: #121212; color: #fff; overflow: hidden; }
-
-        /* بەشی سەرەوە: شاشەی پەخشکردن */
-        #main { 
-            flex: 0 0 auto; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            background: #000; 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+        }
+        body {
+            background: #0a0e14;
+            color: #e4e9f0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
             padding: 10px;
-            border-bottom: 2px solid #222;
         }
-        video { width: 100%; max-width: 850px; height: 240px; background: #000; outline: none; border-radius: 8px; }
-        #status { margin-top: 8px; color: #00bcd4; font-size: 13px; font-weight: bold; text-align: center; }
-
-        /* بەشی خوارەوە: گرووپەکان و لیستی کەناڵەکان */
-        #bottom-section { 
-            flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            background: #1e1e1e; 
-            overflow: hidden;
+        #app {
+            max-width: 1400px;
+            width: 100%;
         }
-        
-        .header { 
-            padding: 10px; 
-            background: #252525; 
-            font-size: 16px; 
-            font-weight: bold; 
-            text-align: center; 
-            color: #00bcd4; 
-            border-bottom: 1px solid #333;
+        /* Header / Logo */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 5px 10px 5px;
+            border-bottom: 1px solid #2a313c;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-
-        #groupSelect { 
-            width: 92%; 
-            margin: 10px auto; 
-            padding: 10px; 
-            background: #2a2a2a; 
-            color: #fff; 
-            border: 1px solid #444; 
-            border-radius: 6px; 
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-icon {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f7b731, #f5a623);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+        .logo-sub {
+            font-size: 14px;
+            color: #8895aa;
+            background: #1e262f;
+            padding: 4px 12px;
+            border-radius: 30px;
+            border-left: 3px solid #f7b731;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .controls input, .controls button {
+            background: #1e262f;
+            border: 1px solid #2f3a47;
+            color: #e4e9f0;
+            padding: 8px 14px;
+            border-radius: 30px;
             font-size: 14px;
             outline: none;
+            transition: 0.2s;
         }
-
-        #channelList { 
-            flex: 1; 
-            overflow-y: auto; 
-            list-style: none; 
-            padding: 10px; 
+        .controls input:focus, .controls button:hover {
+            border-color: #f7b731;
+            background: #28323f;
         }
-
-        /* شێوازی هەر کەناڵێک */
-        .channel-item { 
-            display: flex; 
-            align-items: center; 
-            padding: 10px; 
-            border-bottom: 1px solid #2a2a2a; 
-            cursor: pointer; 
-            transition: 0.2s; 
-            border-radius: 6px;
-            margin-bottom: 4px;
-            background: #222;
+        .controls button {
+            cursor: pointer;
+            font-weight: 600;
+            background: #f7b731;
+            color: #0a0e14;
+            border: none;
         }
-        .channel-item:hover { background: #333; }
-        .channel-item img { width: 36px; height: 36px; object-fit: contain; margin-right: 12px; background: #000; border-radius: 4px; }
-        .channel-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ddd; }
+        .controls button:hover {
+            background: #f5a623;
+            transform: scale(1.02);
+        }
+        /* Main Layout */
+        .main-grid {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            flex-direction: row;
+        }
+        /* Sidebar / Groups */
+        .groups-sidebar {
+            flex: 0 0 240px;
+            background: #12181f;
+            border-radius: 16px;
+            padding: 12px 0;
+            max-height: 75vh;
+            overflow-y: auto;
+            border: 1px solid #1f2833;
+        }
+        .groups-sidebar::-webkit-scrollbar { width: 4px; }
+        .groups-sidebar::-webkit-scrollbar-thumb { background: #f7b731; border-radius: 10px; }
+        .group-item {
+            padding: 10px 18px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            font-size: 14px;
+            transition: 0.15s;
+            display: flex;
+            justify-content: space-between;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .group-item:hover {
+            background: #1c2632;
+            border-left-color: #f7b731;
+        }
+        .group-item.active {
+            background: #1c2632;
+            border-left-color: #f7b731;
+            font-weight: 600;
+        }
+        .group-count {
+            background: #2a3542;
+            border-radius: 30px;
+            padding: 0 10px;
+            font-size: 11px;
+            color: #b0c0d0;
+        }
+        /* Channel list */
+        .channels-area {
+            flex: 1;
+            background: #12181f;
+            border-radius: 16px;
+            padding: 12px;
+            max-height: 75vh;
+            overflow-y: auto;
+            border: 1px solid #1f2833;
+        }
+        .channels-area::-webkit-scrollbar { width: 4px; }
+        .channels-area::-webkit-scrollbar-thumb { background: #f7b731; border-radius: 10px; }
+        .channel-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: #0f151c;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: 0.15s;
+            border: 1px solid transparent;
+        }
+        .channel-card:hover {
+            background: #1c2632;
+            border-color: #2f3a47;
+        }
+        .channel-card.active {
+            border-color: #f7b731;
+            background: #1e2a36;
+        }
+        .channel-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #1e262f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .channel-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .channel-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .channel-name {
+            font-weight: 500;
+            font-size: 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .channel-group-tag {
+            font-size: 11px;
+            color: #8895aa;
+            background: #1a222b;
+            padding: 2px 10px;
+            border-radius: 30px;
+            display: inline-block;
+            margin-top: 3px;
+        }
+        .channel-play-icon {
+            color: #f7b731;
+            font-size: 22px;
+            opacity: 0.6;
+        }
+        /* Video Player */
+        .player-container {
+            margin-top: 20px;
+            background: #0b1016;
+            border-radius: 16px;
+            border: 1px solid #1f2833;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 16 / 9;
+            max-height: 480px;
+        }
+        #videoPlayer {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: block;
+        }
+        .player-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            color: #ccc;
+            pointer-events: none;
+            border-left: 3px solid #f7b731;
+        }
+        /* Favorites star */
+        .fav-btn {
+            background: none;
+            border: none;
+            color: #8895aa;
+            font-size: 22px;
+            cursor: pointer;
+            transition: 0.2s;
+            padding: 0 5px;
+        }
+        .fav-btn.active {
+            color: #f7b731;
+            text-shadow: 0 0 8px #f7b73155;
+        }
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .main-grid {
+                flex-direction: column;
+            }
+            .groups-sidebar {
+                flex: none;
+                max-height: 200px;
+                overflow-y: auto;
+                display: flex;
+                flex-wrap: nowrap;
+                gap: 6px;
+                padding: 10px;
+                overflow-x: auto;
+                background: #0f151c;
+                border-radius: 12px;
+            }
+            .group-item {
+                white-space: nowrap;
+                border-left: none;
+                border-bottom: 2px solid transparent;
+                padding: 8px 14px;
+                background: #1a222b;
+                border-radius: 40px;
+                flex-shrink: 0;
+            }
+            .group-item.active {
+                border-bottom-color: #f7b731;
+                background: #28323f;
+            }
+            .group-count { display: none; }
+            .channels-area {
+                max-height: 50vh;
+            }
+            .header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .controls {
+                justify-content: stretch;
+            }
+            .controls input, .controls button {
+                flex: 1;
+            }
+            .player-container {
+                aspect-ratio: 16/9;
+                max-height: 300px;
+            }
+        }
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8895aa;
+        }
+        .spinner {
+            border: 3px solid #1f2833;
+            border-top: 3px solid #f7b731;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-
-    <!-- بەشی سەرەوە (Player) -->
-    <div id="main">
-        <video id="videoPlayer" controls autoplay></video>
-        <div id="status">کەناڵێک هەڵبژێرە بۆ لێدان...</div>
+<div id="app">
+    <div class="header">
+        <div class="logo-area">
+            <span class="logo-icon">📺 KANIAN</span>
+            <span class="logo-sub">Diarbyet • Pro</span>
+        </div>
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="🔍 Search channels..." />
+            <button id="loadBtn">⟳ Reload</button>
+        </div>
     </div>
 
-    <!-- بەشی خوارەوە (گرووپەکان و کەناڵەکان) -->
-    <div id="bottom-section">
-        <div class="header">ZAMAN IPTV</div>
-        <select id="groupSelect" onchange="filterChannels()">
-            <option value="ALL">هەموو گرووپەکان (All Groups)</option>
-        </select>
-        <ul id="channelList"></ul>
+    <!-- Player -->
+    <div class="player-container" id="playerContainer">
+        <video id="videoPlayer" controls autoplay playsinline></video>
+        <div class="player-overlay" id="nowPlaying">Select a channel</div>
     </div>
 
-    <script>
-        const M3U_URL = "https://xtream-ie.net/get.php?username=serverblbas&password=serverblbas&type=m3u_plus";
+    <!-- Main Grid -->
+    <div class="main-grid">
+        <div class="groups-sidebar" id="groupsSidebar"></div>
+        <div class="channels-area" id="channelsArea"></div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- CONFIG ----------
+        const M3U_URL = 'https://xtream-ie.net/get.php?username=serverblbas&password=serverblbas&type=m3u_plus';
+        const EPG_URL = 'https://xtream-ie.net/xmltv.php?username=serverblbas&password=serverblbas';
+
+        // State
         let allChannels = [];
+        let groups = {};
+        let currentGroup = 'all';
+        let favorites = JSON.parse(localStorage.getItem('kanian_favs') || '[]');
+        let currentChannel = null;
+        let hls = null;
 
-        // ڕاکێشانی فایلی M3U
-        fetch(M3U_URL)
-            .then(res => res.text())
-            .then(data => {
-                parseM3U(data);
-                document.getElementById('status').innerText = "کەناڵەکان بارکران.";
-            })
-            .catch(err => {
-                document.getElementById('status').innerText = "کێشە لە وەگرتنی لینکەکە هەیە (CORS / Network Error).";
-            });
+        // DOM refs
+        const video = document.getElementById('videoPlayer');
+        const groupsSidebar = document.getElementById('groupsSidebar');
+        const channelsArea = document.getElementById('channelsArea');
+        const searchInput = document.getElementById('searchInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const nowPlaying = document.getElementById('nowPlaying');
 
-        // شیکردنەوەی فایلی M3U
+        // ---------- HELPERS ----------
         function parseM3U(data) {
             const lines = data.split('\n');
-            let currentChannel = {};
-            const groups = new Set();
-
-            lines.forEach(line => {
+            const channels = [];
+            let current = null;
+            for (let line of lines) {
                 line = line.trim();
                 if (line.startsWith('#EXTINF:')) {
-                    // وەرگرتنی ناوی گرووپ
-                    const groupMatch = line.match(/group-title="([^"]+)"/);
-                    const group = groupMatch ? groupMatch[1] : 'Uncategorized';
-                    groups.add(group);
-
-                    // وەرگرتنی لۆگۆ
-                    const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-                    const logo = logoMatch ? logoMatch[1] : '';
-
-                    // وەرگرتنی ناوی کەناڵ
-                    const nameParts = line.split(',');
-                    const name = nameParts[nameParts.length - 1];
-
-                    currentChannel = { name, group, logo };
-                } else if (line.startsWith('http')) {
-                    currentChannel.url = line;
-                    allChannels.push(currentChannel);
-                    currentChannel = {};
+                    // extract group-title, logo, name
+                    const groupMatch = line.match(/group-title="([^"]*)"/);
+                    const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+                    const nameMatch = line.match(/,([^,]*)$/);
+                    const tvgNameMatch = line.match(/tvg-name="([^"]*)"/);
+                    const name = nameMatch ? nameMatch[1].trim() : (tvgNameMatch ? tvgNameMatch[1].trim() : 'Unknown');
+                    const group = groupMatch ? groupMatch[1].trim() : 'Uncategorized';
+                    const logo = logoMatch ? logoMatch[1].trim() : '';
+                    current = { name, group, logo, url: '' };
+                } else if (line && !line.startsWith('#') && current) {
+                    current.url = line.trim();
+                    if (current.url) channels.push(current);
+                    current = null;
                 }
-            });
-
-            // پرکردنەوەی لیستی گرووپەکان
-            const select = document.getElementById('groupSelect');
-            groups.forEach(g => {
-                const opt = document.createElement('option');
-                opt.value = g;
-                opt.innerText = g;
-                select.appendChild(opt);
-            });
-
-            renderChannels(allChannels);
+            }
+            return channels;
         }
 
-        // نیشاندانی کەناڵەکان
-        function renderChannels(channels) {
-            const list = document.getElementById('channelList');
-            list.innerHTML = '';
+        function groupChannels(channels) {
+            const map = {};
+            channels.forEach(ch => {
+                const g = ch.group || 'Uncategorized';
+                if (!map[g]) map[g] = [];
+                map[g].push(ch);
+            });
+            // sort groups
+            const sorted = {};
+            Object.keys(map).sort().forEach(k => { sorted[k] = map[k]; });
+            return sorted;
+        }
 
-            channels.slice(0, 300).forEach(ch => { 
-                const li = document.createElement('li');
-                li.className = 'channel-item';
-                
-                const img = document.createElement('img');
-                img.src = ch.logo || 'https://via.placeholder.com/40?text=TV';
-                img.onerror = () => img.src = 'https://via.placeholder.com/40?text=TV';
+        function renderGroups() {
+            groupsSidebar.innerHTML = '';
+            const allCount = allChannels.length;
+            // "All" item
+            const allDiv = document.createElement('div');
+            allDiv.className = `group-item ${currentGroup === 'all' ? 'active' : ''}`;
+            allDiv.innerHTML = `<span>📡 All</span><span class="group-count">${allCount}</span>`;
+            allDiv.dataset.group = 'all';
+            allDiv.addEventListener('click', () => selectGroup('all'));
+            groupsSidebar.appendChild(allDiv);
 
-                const span = document.createElement('span');
-                span.className = 'channel-name';
-                span.innerText = ch.name;
-
-                li.appendChild(img);
-                li.appendChild(span);
-
-                li.onclick = () => playStream(ch.url, ch.name);
-                list.appendChild(li);
+            Object.keys(groups).sort().forEach(g => {
+                const div = document.createElement('div');
+                div.className = `group-item ${currentGroup === g ? 'active' : ''}`;
+                const count = groups[g].length;
+                div.innerHTML = `<span>${g}</span><span class="group-count">${count}</span>`;
+                div.dataset.group = g;
+                div.addEventListener('click', () => selectGroup(g));
+                groupsSidebar.appendChild(div);
             });
         }
 
-        // فلتەرکردن بەپێی گرووپ
-        function filterChannels() {
-            const selectedGroup = document.getElementById('groupSelect').value;
-            if (selectedGroup === 'ALL') {
-                renderChannels(allChannels);
+        function selectGroup(group) {
+            currentGroup = group;
+            renderGroups();
+            renderChannels();
+        }
+
+        function renderChannels() {
+            const search = searchInput.value.toLowerCase().trim();
+            let list = [];
+            if (currentGroup === 'all') {
+                list = allChannels;
             } else {
-                const filtered = allChannels.filter(c => c.group === selectedGroup);
-                renderChannels(filtered);
+                list = groups[currentGroup] || [];
+            }
+            if (search) {
+                list = list.filter(ch => ch.name.toLowerCase().includes(search));
+            }
+            // sort by name
+            list.sort((a,b) => a.name.localeCompare(b.name));
+
+            channelsArea.innerHTML = '';
+            if (list.length === 0) {
+                channelsArea.innerHTML = '<div class="loading">📭 No channels found</div>';
+                return;
+            }
+            list.forEach(ch => {
+                const card = document.createElement('div');
+                card.className = `channel-card ${currentChannel && currentChannel.url === ch.url ? 'active' : ''}`;
+                // logo
+                const logoDiv = document.createElement('div');
+                logoDiv.className = 'channel-logo';
+                if (ch.logo) {
+                    logoDiv.innerHTML = `<img src="${ch.logo}" alt="" loading="lazy" onerror="this.style.display='none';this.parentElement.textContent='📺'">`;
+                } else {
+                    logoDiv.textContent = '📺';
+                }
+                // info
+                const info = document.createElement('div');
+                info.className = 'channel-info';
+                const nameSpan = document.createElement('div');
+                nameSpan.className = 'channel-name';
+                nameSpan.textContent = ch.name;
+                const tag = document.createElement('span');
+                tag.className = 'channel-group-tag';
+                tag.textContent = ch.group;
+                info.appendChild(nameSpan);
+                info.appendChild(tag);
+                // fav button
+                const favBtn = document.createElement('button');
+                favBtn.className = `fav-btn ${favorites.includes(ch.url) ? 'active' : ''}`;
+                favBtn.textContent = favorites.includes(ch.url) ? '⭐' : '☆';
+                favBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleFavorite(ch.url);
+                });
+                // play icon
+                const playIcon = document.createElement('span');
+                playIcon.className = 'channel-play-icon';
+                playIcon.textContent = '▶';
+
+                card.appendChild(logoDiv);
+                card.appendChild(info);
+                card.appendChild(favBtn);
+                card.appendChild(playIcon);
+
+                card.addEventListener('click', () => playChannel(ch));
+                channelsArea.appendChild(card);
+            });
+        }
+
+        function playChannel(ch) {
+            currentChannel = ch;
+            // stop any existing hls
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+            const url = ch.url;
+            nowPlaying.textContent = `▶ ${ch.name}`;
+            // check if HLS (m3u8) or direct stream
+            if (url.includes('.m3u8') || url.includes('m3u8')) {
+                if (Hls.isSupported()) {
+                    hls = new Hls({ enableWorker: true });
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        video.play().catch(() => {});
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = url;
+                    video.play().catch(() => {});
+                }
+            } else {
+                // direct mp4/ts etc
+                video.src = url;
+                video.play().catch(() => {});
+            }
+            // highlight
+            renderChannels();
+        }
+
+        function toggleFavorite(url) {
+            const idx = favorites.indexOf(url);
+            if (idx > -1) {
+                favorites.splice(idx, 1);
+            } else {
+                favorites.push(url);
+            }
+            localStorage.setItem('kanian_favs', JSON.stringify(favorites));
+            renderChannels(); // refresh fav icons
+        }
+
+        // ---------- LOAD DATA ----------
+        async function loadData() {
+            channelsArea.innerHTML = '<div class="loading"><div class="spinner"></div>Loading channels...</div>';
+            try {
+                // Fetch M3U
+                const resp = await fetch(M3U_URL);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const m3uText = await resp.text();
+                allChannels = parseM3U(m3uText);
+                if (allChannels.length === 0) throw new Error('No channels parsed');
+                groups = groupChannels(allChannels);
+                currentGroup = 'all';
+                renderGroups();
+                renderChannels();
+                // auto-play first channel if none selected
+                if (!currentChannel && allChannels.length) {
+                    playChannel(allChannels[0]);
+                }
+                // EPG is not used in this version, but we can fetch it for future
+                // fetch(EPG_URL).then(r => r.text()).then(epgData => console.log('EPG loaded')).catch(()=>{});
+            } catch (e) {
+                channelsArea.innerHTML = `<div class="loading">❌ Error loading: ${e.message}<br><small>Check URL/network</small></div>`;
+                console.error(e);
             }
         }
 
-        // لێدانی کەناڵەکە
-        function playStream(url, name) {
-            const video = document.getElementById('videoPlayer');
-            video.src = url;
-            document.getElementById('status').innerText = "پەخشکردنی: " + name;
-        }
-    </script>
+        // ---------- SEARCH ----------
+        searchInput.addEventListener('input', renderChannels);
+
+        // ---------- RELOAD ----------
+        loadBtn.addEventListener('click', loadData);
+
+        // ---------- INIT ----------
+        loadData();
+
+        // handle video errors
+        video.addEventListener('error', (e) => {
+            console.warn('Video error', e);
+            nowPlaying.textContent = '⚠️ Stream unavailable';
+        });
+
+        // mobile touch fix
+        document.addEventListener('touchstart', function(){}, true);
+
+        console.log('🐱 Kanian IPTV Pro loaded — CAT Shadow approves.');
+    })();
+</script>
 </body>
 </html>
